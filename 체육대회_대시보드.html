@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 한마음 학교 체육대회 라이브 대시보드</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- Firebase SDK (compat) : 실시간 데이터 동기화용 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvr2jw8Q4rp7D6WzepyjfOuMFJDMKK36U",
+            authDomain: "dong-5217c.firebaseapp.com",
+            databaseURL: "https://dong-5217c-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "dong-5217c",
+            storageBucket: "dong-5217c.firebasestorage.app",
+            messagingSenderId: "141190988077",
+            appId: "1:141190988077:web:a1d7e41b907ed940d253a4"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    },
+                    colors: {
+                        teamRed: '#EF4444',
+                        teamBlue: '#3B82F6',
+                        teamYellow: '#EAB308',
+                        teamGreen: '#10B981',
+                        sportsDark: '#0F172A',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-short': 'bounce 1s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glow-red { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+        .glow-blue { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+        .glow-yellow { box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+        .glow-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+    </style>
+</head>
+<body class="bg-sportsDark text-slate-100 font-sans min-h-screen pb-12 selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-lg transform -rotate-3">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-300 to-indigo-300">
+                            2026 한마음 체육대회
+                        </h1>
+                        <p class="text-xs text-slate-400 flex items-center gap-3">
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                                실시간 라이브 대시보드
+                            </span>
+                            <span id="connStatus" class="text-xs flex items-center gap-1 text-slate-500">
+                                <span class="w-2 h-2 rounded-full bg-slate-500"></span> 연결 확인 중...
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Admin Toggle Button -->
+                <button onclick="toggleAdminModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-medium border border-slate-700 text-slate-300 transition flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-indigo-400"></i>
+                    <span id="adminBtnText">교사 로그인</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+
+        <!-- Notice & Broadcast Banner -->
+        <section class="glass-card rounded-2xl p-4 border-l-4 border-amber-500 shadow-md relative overflow-hidden">
+            <div class="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2">
+                <div class="flex items-center space-x-3">
+                    <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center gap-1 shrink-0">
+                        <i class="fa-solid fa-bullhorn animate-bounce-short"></i> 긴급 공지
+                    </span>
+                    <p id="currentNotice" class="text-sm sm:text-base font-medium text-slate-200">
+                        현재 [줄다리기 예선]이 메인 운동장에서 진행 중입니다! 선수 여러분은 대기해 주세요.
+                    </p>
+                </div>
+                <span class="text-xs text-slate-400 whitespace-nowrap self-end sm:self-center" id="noticeTime">방금 전</span>
+            </div>
+        </section>
+
+        <!-- Live Team Leaderboard Section -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-ranking-star text-amber-400"></i> 팀별 종합 순위
+                </h2>
+                <span class="text-xs text-slate-400">자동 집계 중 (최종 1,2,3위 상품 증정)</span>
+            </div>
+
+            <!-- Team Score Cards Grid -->
+            <div id="teamScoresContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Main Content 2 Grid: Timetable/Results & Cheer Board -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left 2 Columns: Timetable & Venues & Results -->
+            <div class="lg:col-span-2 space-y-6">
+
+                <!-- Navigation Tabs -->
+                <div class="flex border-b border-slate-800 space-x-4">
+                    <button onclick="switchTab('timetable')" id="tabBtn-timetable" class="pb-3 text-sm font-bold border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days"></i> 경기 타임테이블
+                    </button>
+                    <button onclick="switchTab('results')" id="tabBtn-results" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-square-poll-vertical"></i> 종목별 경기 결과
+                    </button>
+                    <button onclick="switchTab('map')" id="tabBtn-map" class="pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-map-location-dot"></i> 경기장 위치 안내
+                    </button>
+                </div>
+
+                <!-- Tab 1: Timetable -->
+                <div id="tab-timetable" class="space-y-3">
+                    <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+                        <span>전체 <span id="totalMatchCount">0</span>개 종목 진행</span>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 진행중</span>
+                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> 예정</span>
+                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500"></span> 종료</span>
+                        </div>
+                    </div>
+
+                    <div id="scheduleList" class="space-y-3">
+                        <!-- Dynamically Populated -->
+                    </div>
+                </div>
+
+                <!-- Tab 2: Match Results -->
+                <div id="tab-results" class="hidden space-y-3">
+                    <div id="resultsList" class="space-y-3">
+                        <!-- Dynamically Populated -->
+                    </div>
+                </div>
+
+                <!-- Tab 3: Venue Map -->
+                <div id="tab-map" class="hidden glass-card rounded-2xl p-5 space-y-4">
+                    <h3 class="font-bold text-lg text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-map text-indigo-400"></i> 교내 경기장 배치도
+                    </h3>
+                    <div class="relative w-full h-64 sm:h-80 bg-slate-900/80 rounded-xl border border-slate-700/60 p-4 flex flex-col justify-between overflow-hidden">
+                        <!-- Mock Map Design -->
+                        <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
+                        
+                        <!-- Map Locations -->
+                        <div class="relative z-10 grid grid-cols-2 sm:grid-cols-3 gap-3 h-full">
+                            <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-lg p-3 flex flex-col justify-between hover:border-emerald-400 transition">
+                                <div>
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">구역 A</span>
+                                    <h4 class="font-bold text-sm text-emerald-100 mt-1">메인 운동장 (잔디)</h4>
+                                </div>
+                                <p class="text-xs text-slate-400">축구, 줄다리기, 릴레이 계주, 개회식</p>
+                            </div>
+
+                            <div class="bg-blue-950/40 border border-blue-500/40 rounded-lg p-3 flex flex-col justify-between hover:border-blue-400 transition">
+                                <div>
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">구역 B</span>
+                                    <h4 class="font-bold text-sm text-blue-100 mt-1">실내 체육관</h4>
+                                </div>
+                                <p class="text-xs text-slate-400">농구, 피구, 단체줄넘기</p>
+                            </div>
+
+                            <div class="bg-amber-950/40 border border-amber-500/40 rounded-lg p-3 flex flex-col justify-between hover:border-amber-400 transition">
+                                <div>
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">구역 C</span>
+                                    <h4 class="font-bold text-sm text-amber-100 mt-1">우레탄 농구장</h4>
+                                </div>
+                                <p class="text-xs text-slate-400">족구, 단체 판 뒤집기</p>
+                            </div>
+
+                            <div class="bg-purple-950/40 border border-purple-500/40 rounded-lg p-3 flex flex-col justify-between hover:border-purple-400 transition">
+                                <div>
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">구역 D</span>
+                                    <h4 class="font-bold text-sm text-purple-100 mt-1">소운동장 / 스탠드</h4>
+                                </div>
+                                <p class="text-xs text-slate-400">응원석, 운영본부, 의무실</p>
+                            </div>
+
+                            <div class="col-span-2 sm:col-span-2 bg-rose-950/30 border border-rose-500/30 rounded-lg p-3 flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-kit-medical text-2xl text-rose-400"></i>
+                                    <div>
+                                        <h4 class="font-bold text-sm text-slate-200">중앙 본부 & 의무실</h4>
+                                        <p class="text-xs text-slate-400">부상 발생 시 스탠드 중앙 의무실로 이동하세요.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Live Cheer / Message Board -->
+            <div class="space-y-4">
+                <div class="glass-card rounded-2xl p-5 space-y-4 flex flex-col h-[520px]">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                            <i class="fa-solid fa-comments text-indigo-400"></i> 실시간 응원 한마디
+                        </h3>
+                        <span id="cheerCount" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300">0개</span>
+                    </div>
+
+                    <!-- Cheer Input Form -->
+                    <form id="cheerForm" onsubmit="addCheerMessage(event)" class="space-y-2">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="text" id="cheerAuthor" required placeholder="작성자 (예: 2반 홍길동)" class="col-span-1 px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <select id="cheerTeam" class="col-span-2 px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500">
+                                <option value="청팀">청팀 응원 💙</option>
+                                <option value="백팀">백팀 응원 🤍</option>
+                                <option value="홍팀">홍팀 응원 ❤️</option>
+                                <option value="황팀">황팀 응원 💛</option>
+                                <option value="전체">모두 파이팅 👏</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="cheerText" required placeholder="응원의 메시지를 남겨주세요!" class="flex-1 px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0">
+                                등록 <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Cheer Messages Feed -->
+                    <div id="cheerFeed" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                        <!-- Dynamically Populated -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Admin Control Modal -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card bg-slate-900 rounded-2xl border border-slate-700 max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-amber-400 text-xl"></i>
+                    <h3 class="text-xl font-bold text-white">체육대회 교사 관리 모드</h3>
+                </div>
+                <button onclick="toggleAdminModal()" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Login Section (if not authenticated) -->
+            <div id="adminAuthSection" class="space-y-4">
+                <p class="text-sm text-slate-300">교사 전용 비밀번호를 입력해주세요. 여러 선생님이 같은 비밀번호로 로그인하여 체육대회 현황을 함께 수정할 수 있습니다.</p>
+                <div class="flex gap-2">
+                    <input type="password" id="adminPassword" placeholder="비밀번호 입력" class="flex-1 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-indigo-500">
+                    <button onclick="verifyAdmin()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 font-bold rounded-xl text-sm transition">로그인</button>
+                </div>
+            </div>
+
+            <!-- Management Section (Hidden until auth) -->
+            <div id="adminControlSection" class="hidden space-y-6">
+                <!-- 1. Broadcast Notice Editor -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-3">
+                    <h4 class="font-bold text-sm text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-bullhorn"></i> 실시간 상단 공지 수정
+                    </h4>
+                    <div class="flex gap-2">
+                        <input type="text" id="adminNoticeInput" placeholder="새 공지사항을 입력하세요." class="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white">
+                        <button onclick="updateNotice()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold">수정</button>
+                    </div>
+                </div>
+
+                <!-- 2. Team Score Editor -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-3">
+                    <h4 class="font-bold text-sm text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-pen-to-square"></i> 팀별 종합 점수 빠른 수정
+                    </h4>
+                    <div id="adminTeamScoreGrid" class="grid grid-cols-2 gap-3">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- 3. Timetable (Event) Manager -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-sm text-sky-400 flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-plus"></i> 경기 종목 추가 / 삭제 / 이름 수정
+                        </h4>
+                        <button onclick="addMatch()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0">
+                            <i class="fa-solid fa-plus"></i> 종목 추가
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400">종목 이름, 시간, 장소, 세부 설명을 수정하거나 종목을 추가·삭제할 수 있습니다.</p>
+                    <div id="adminTimetableList" class="space-y-3 max-h-72 overflow-y-auto pr-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- 4. Match Status Editor -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 space-y-3">
+                    <h4 class="font-bold text-sm text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> 경기 진행 상태 및 우승팀 변경
+                    </h4>
+                    <div id="adminMatchList" class="space-y-3 max-h-60 overflow-y-auto pr-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+                    <button onclick="resetDataToDefault()" class="px-3 py-1.5 bg-rose-900/40 text-rose-300 hover:bg-rose-800/60 border border-rose-800 rounded-lg text-xs">
+                        데이터 초기화
+                    </button>
+                    <button onclick="logoutAdmin()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold">
+                        관리자 로그아웃
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 text-white px-4 py-3 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg" class="text-sm font-medium">처리되었습니다.</span>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        // Default Mock State
+        const defaultTeams = [
+            { id: 'blue', name: '청팀', score: 450, color: 'bg-blue-600', textColor: 'text-blue-400', border: 'border-blue-500/30', glow: 'glow-blue', icon: 'fa-droplet' },
+            { id: 'white', name: '백팀', score: 520, color: 'bg-slate-200 text-slate-900', textColor: 'text-slate-200', border: 'border-slate-400/30', glow: '', icon: 'fa-snowflake' },
+            { id: 'red', name: '홍팀', score: 390, color: 'bg-red-600', textColor: 'text-red-400', border: 'border-red-500/30', glow: 'glow-red', icon: 'fa-fire' },
+            { id: 'yellow', name: '황팀', score: 480, color: 'bg-yellow-500', textColor: 'text-yellow-400', border: 'border-yellow-500/30', glow: 'glow-yellow', icon: 'fa-sun' },
+        ];
+
+        const defaultMatches = [
+            { id: 1, name: '개회식 및 선수선서', time: '09:00 - 09:30', location: '메인 운동장', status: 'completed', winner: '전체', points: '참석점수 부여', detail: '성황리에 개회식이 완료되었습니다.' },
+            { id: 2, name: '100m 단거리 달리기 (예선/결선)', time: '09:30 - 10:30', location: '메인 운동장 트랙', status: 'completed', winner: '백팀 1위, 황팀 2위', points: '100점', detail: '백팀 김철수 학생 우승 (11.8초)' },
+            { id: 3, name: '단체 피구 (여학생)', time: '10:30 - 11:30', location: '실내 체육관', status: 'completed', winner: '황팀', points: '150점', detail: '황팀 결승전 접전 끝 승리' },
+            { id: 4, name: '전략 줄다리기', time: '11:30 - 12:30', location: '메인 운동장', status: 'ongoing', winner: '진행 중', points: '200점', detail: '현재 예선전 열전 진행 중!' },
+            { id: 5, name: '점심시간 & 응원전', time: '12:30 - 13:30', location: '스탠드 및 구경거리', status: 'upcoming', winner: '-', points: '100점', detail: '각 팀별 응원전 평가 진행' },
+            { id: 6, name: '사제동행 풋살', time: '13:30 - 14:30', location: '메인 운동장', status: 'upcoming', winner: '-', points: '150점', detail: '선생님과 학생 합동 경기' },
+            { id: 7, name: '단체줄넘기', time: '14:30 - 15:20', location: '실내 체육관', status: 'upcoming', winner: '-', points: '150점', detail: '3분간 최다 횟수 측정' },
+            { id: 8, name: '체육대회의 꽃: 계주 릴레이', time: '15:20 - 16:00', location: '메인 운동장', status: 'upcoming', winner: '-', points: '300점', detail: '배점 최고 높음!' },
+        ];
+
+        const defaultCheers = [
+            { id: 1, author: '3학년 2반', team: '청팀', text: '청팀 오늘 무조건 우승가자!! 파이팅!! 🔥', time: '10:12 AM' },
+            { id: 2, author: '학생회장', team: '전체', text: '다치지 말고 즐겁게 체육대회 즐겨요 모두! 👏', time: '10:25 AM' },
+            { id: 3, author: '1학년 5반', team: '백팀', text: '줄다리기 백팀이 무조건 이긴다 줄 잡아라~~', time: '11:05 AM' },
+        ];
+
+        // State Store
+        // 데이터 원본은 Firebase Realtime DB에 있으며, state는 그 사본입니다.
+        // isAdmin(교사 로그인 여부)만 각 기기 로컬 상태로 유지합니다.
+        let state = {
+            teams: defaultTeams,
+            matches: defaultMatches,
+            cheers: defaultCheers,
+            notice: '현재 [전략 줄다리기] 경기 진행 중입니다! 운동장으로 모여주세요.',
+            isAdmin: false
+        };
+
+        let dbReady = false;
+
+        // Firebase는 배열을 객체로 반환하거나 빈 배열을 생략할 수 있어, 항상 배열로 정규화합니다.
+        function toArray(val) {
+            if (Array.isArray(val)) return val.filter(v => v !== null && v !== undefined);
+            if (val && typeof val === 'object') return Object.values(val);
+            return [];
+        }
+
+        // Firebase에 현재 데이터(점수/경기/응원/공지)를 저장합니다.
+        // 저장하면 모든 접속자의 리스너가 반응해 자동으로 화면이 갱신됩니다.
+        function saveState() {
+            if (!dbReady) {
+                showToast('서버 연결 중입니다. 잠시 후 다시 시도해주세요.', 'error');
+                return;
+            }
+            db.ref('sportsData').set({
+                teams: state.teams,
+                matches: state.matches,
+                cheers: state.cheers,
+                notice: state.notice
+            }).catch(() => {
+                showToast('저장에 실패했습니다. 인터넷 연결을 확인해주세요.', 'error');
+            });
+        }
+
+        // Firebase 실시간 구독: 누군가 데이터를 바꾸면 모든 화면이 자동 갱신됩니다.
+        function subscribeToFirebase() {
+            db.ref('sportsData').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data === null) {
+                    // DB가 비어있으면(최초 1회) 기본 데이터로 초기화
+                    saveDefaultsToFirebase();
+                    return;
+                }
+                state.teams = toArray(data.teams);
+                state.matches = toArray(data.matches);
+                state.cheers = toArray(data.cheers);
+                state.notice = data.notice || '';
+                dbReady = true;
+                setConnectionStatus(true);
+                render();
+            }, () => {
+                setConnectionStatus(false);
+                showToast('서버에서 데이터를 불러오지 못했습니다.', 'error');
+            });
+
+            db.ref('.info/connected').on('value', (snap) => {
+                setConnectionStatus(snap.val() === true);
+            });
+        }
+
+        function saveDefaultsToFirebase() {
+            db.ref('sportsData').set({
+                teams: defaultTeams,
+                matches: defaultMatches,
+                cheers: defaultCheers,
+                notice: '현재 [전략 줄다리기] 경기 진행 중입니다! 운동장으로 모여주세요.'
+            });
+        }
+
+        // Initialize & Render
+        function render() {
+            renderNotice();
+            renderTeamScores();
+            renderTimetable();
+            renderResults();
+            renderCheers();
+        }
+
+        // 1. Notice Render
+        function renderNotice() {
+            document.getElementById('currentNotice').innerText = state.notice;
+        }
+
+        // 2. Team Scores Render (Rankings Sorted)
+        function renderTeamScores() {
+            const container = document.getElementById('teamScoresContainer');
+            
+            // Sort teams by score descending
+            const sortedTeams = [...state.teams].sort((a, b) => b.score - a.score);
+
+            container.innerHTML = sortedTeams.map((team, index) => {
+                const rankBadge = index === 0 ? '👑 1위' : `${index + 1}위`;
+                const rankClass = index === 0 ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-400';
+
+                return `
+                    <div class="glass-card rounded-2xl p-4 relative overflow-hidden transition transform hover:-translate-y-1 ${team.border} ${team.glow}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${rankClass}">
+                                ${rankBadge}
+                            </span>
+                            <span class="text-xs ${team.textColor} font-bold flex items-center gap-1">
+                                <i class="fa-solid ${team.icon}"></i> ${team.name}
+                            </span>
+                        </div>
+                        <div class="mt-2 flex items-baseline justify-between">
+                            <span class="text-3xl font-black tracking-tight text-white">${team.score.toLocaleString()}</span>
+                            <span class="text-xs text-slate-400 font-medium">점수 (pts)</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div class="h-full ${team.color.split(' ')[0]}" style="width: ${Math.min(100, (team.score / 800) * 100)}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 3. Timetable Render
+        function renderTimetable() {
+            const container = document.getElementById('scheduleList');
+            document.getElementById('totalMatchCount').innerText = state.matches.length;
+
+            container.innerHTML = state.matches.map(m => {
+                let statusBadge = '';
+                let borderStyle = 'border-slate-800';
+
+                if (m.status === 'ongoing') {
+                    statusBadge = '<span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold animate-pulse-slow flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 진행 중</span>';
+                    borderStyle = 'border-emerald-500/50 bg-emerald-950/10';
+                } else if (m.status === 'completed') {
+                    statusBadge = '<span class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 text-xs font-medium">완료</span>';
+                } else {
+                    statusBadge = '<span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-medium">예정</span>';
+                }
+
+                return `
+                    <div class="glass-card rounded-xl p-4 border ${borderStyle} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-700 transition">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">${m.time}</span>
+                                <span class="text-xs text-slate-400"><i class="fa-solid fa-location-dot"></i> ${m.location}</span>
+                            </div>
+                            <h4 class="font-bold text-base text-slate-100">${m.name}</h4>
+                            <p class="text-xs text-slate-400">${m.detail}</p>
+                        </div>
+                        <div class="flex items-center space-x-3 self-end sm:self-center">
+                            <span class="text-xs font-bold text-amber-400/90 bg-amber-400/10 px-2.5 py-1 rounded-lg">배점: ${m.points}</span>
+                            ${statusBadge}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 4. Results Render
+        function renderResults() {
+            const container = document.getElementById('resultsList');
+            const completed = state.matches.filter(m => m.status === 'completed');
+
+            if (completed.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">아직 완료된 경기 결과가 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = completed.map(m => `
+                <div class="glass-card rounded-xl p-4 border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400">${m.time}</span>
+                        <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs font-bold">${m.points}</span>
+                    </div>
+                    <h4 class="font-bold text-base text-white">${m.name}</h4>
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                        <span class="text-xs text-slate-400">우승 / 승리 팀:</span>
+                        <span class="text-sm font-black text-amber-400"><i class="fa-solid fa-trophy mr-1"></i> ${m.winner}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 5. Cheer Board Render
+        function renderCheers() {
+            const feed = document.getElementById('cheerFeed');
+            document.getElementById('cheerCount').innerText = `${state.cheers.length}개`;
+
+            feed.innerHTML = state.cheers.map(c => `
+                <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 space-y-1 text-xs">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-slate-200">${escapeHtml(c.author)}</span>
+                            <span class="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-semibold">${escapeHtml(c.team)}</span>
+                        </div>
+                        <span class="text-[10px] text-slate-500">${c.time}</span>
+                    </div>
+                    <p class="text-slate-300 font-medium">${escapeHtml(c.text)}</p>
+                </div>
+            `).join('');
+        }
+
+        // Add Cheer Message Function
+        function addCheerMessage(e) {
+            e.preventDefault();
+            const author = document.getElementById('cheerAuthor').value.trim();
+            const team = document.getElementById('cheerTeam').value;
+            const text = document.getElementById('cheerText').value.trim();
+
+            if (!author || !text) return;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+            state.cheers.unshift({ id: Date.now(), author, team, text, time: timeStr });
+            document.getElementById('cheerText').value = '';
+            
+            saveState();
+            showToast('응원 메시지가 등록되었습니다! 🎉');
+        }
+
+        // Tab Switcher
+        function switchTab(tab) {
+            ['timetable', 'results', 'map'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`tabBtn-${t}`);
+                btn.classList.remove('border-indigo-500', 'text-indigo-400');
+                btn.classList.add('border-transparent', 'text-slate-400');
+            });
+
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tabBtn-${tab}`);
+            activeBtn.classList.remove('border-transparent', 'text-slate-400');
+            activeBtn.classList.add('border-indigo-500', 'text-indigo-400');
+        }
+
+        // Admin Modal Toggle
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+        }
+
+        // Admin Auth
+        // 보안 안내: 교사 공용 비밀번호는 평문이 아닌 SHA-256 해시값으로만 저장됩니다.
+        // 소스 코드를 열어봐도 실제 비밀번호는 알 수 없습니다.
+        const ADMIN_PASS_HASH = '41ef7d084d2441cee6c7c7f707875cf7450a6c01a5414783ac0efc7f3b0e80b1';
+
+        async function sha256Hex(message) {
+            const data = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hashBuffer))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        async function verifyAdmin() {
+            const pass = document.getElementById('adminPassword').value;
+            const hashedInput = await sha256Hex(pass);
+            if (hashedInput === ADMIN_PASS_HASH) {
+                state.isAdmin = true;
+                document.getElementById('adminAuthSection').classList.add('hidden');
+                document.getElementById('adminControlSection').classList.remove('hidden');
+                document.getElementById('adminBtnText').innerText = '교사 모드 (ON)';
+                renderAdminControls();
+                showToast('교사 인증에 성공하였습니다. 수정 내용은 모든 화면에 실시간 반영됩니다.');
+                
+                // Fire celebratory confetti on admin entry
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
+            } else {
+                alert('비밀번호가 일치하지 않습니다.');
+            }
+        }
+
+        function logoutAdmin() {
+            state.isAdmin = false;
+            document.getElementById('adminAuthSection').classList.remove('hidden');
+            document.getElementById('adminControlSection').classList.add('hidden');
+            document.getElementById('adminBtnText').innerText = '교사 로그인';
+            document.getElementById('adminPassword').value = '';
+            toggleAdminModal();
+            showToast('로그아웃 되었습니다.');
+        }
+
+        // Render Admin Control Inputs
+        function renderAdminControls() {
+            // Notice input default
+            document.getElementById('adminNoticeInput').value = state.notice;
+
+            // Score grid inputs
+            const scoreGrid = document.getElementById('adminTeamScoreGrid');
+            scoreGrid.innerHTML = state.teams.map(t => `
+                <div class="flex items-center justify-between bg-slate-900 p-2 rounded-lg border border-slate-700">
+                    <span class="text-xs font-bold text-slate-300">${t.name}</span>
+                    <input type="number" id="score-input-${t.id}" value="${t.score}" class="w-20 px-2 py-1 bg-slate-800 border border-slate-600 rounded text-right text-xs font-bold text-amber-400">
+                </div>
+            `).join('') + `<button onclick="updateScores()" class="col-span-2 mt-1 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold">점수 일괄 저장</button>`;
+
+            // Match status editor
+            const matchList = document.getElementById('adminMatchList');
+            matchList.innerHTML = state.matches.map(m => `
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-2 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-200">${m.name}</span>
+                        <select id="match-status-${m.id}" onchange="updateMatchStatus(${m.id})" class="bg-slate-800 border border-slate-600 text-white rounded px-2 py-1">
+                            <option value="upcoming" ${m.status === 'upcoming' ? 'selected' : ''}>예정</option>
+                            <option value="ongoing" ${m.status === 'ongoing' ? 'selected' : ''}>진행 중</option>
+                            <option value="completed" ${m.status === 'completed' ? 'selected' : ''}>완료</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 shrink-0">우승/결과:</span>
+                        <input type="text" id="match-winner-${m.id}" value="${m.winner}" placeholder="예: 청팀 승리" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+                        <button onclick="updateMatchWinner(${m.id})" class="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded shrink-0">저장</button>
+                    </div>
+                </div>
+            `).join('');
+
+            renderAdminTimetable();
+        }
+
+        function renderAdminTimetable() {
+            const list = document.getElementById('adminTimetableList');
+            if (state.matches.length === 0) {
+                list.innerHTML = '<div class="text-center py-4 text-slate-500 text-xs">등록된 종목이 없습니다. [종목 추가] 버튼을 눌러 추가하세요.</div>';
+                return;
+            }
+            list.innerHTML = state.matches.map((m, idx) => `
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-2 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sky-300">종목 ${idx + 1}</span>
+                        <button onclick="deleteMatch(${m.id})" class="px-2 py-1 bg-rose-900/50 text-rose-300 hover:bg-rose-800 border border-rose-800 rounded flex items-center gap-1">
+                            <i class="fa-solid fa-trash"></i> 삭제
+                        </button>
+                    </div>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 shrink-0 w-10">이름</span>
+                            <input type="text" id="tt-name-${m.id}" value="${escapeHtml(m.name)}" placeholder="종목 이름" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 shrink-0 w-10">시간</span>
+                            <input type="text" id="tt-time-${m.id}" value="${escapeHtml(m.time)}" placeholder="예: 09:00 - 10:00" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 shrink-0 w-10">장소</span>
+                            <input type="text" id="tt-location-${m.id}" value="${escapeHtml(m.location)}" placeholder="예: 메인 운동장" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 shrink-0 w-10">설명</span>
+                            <input type="text" id="tt-detail-${m.id}" value="${escapeHtml(m.detail)}" placeholder="세부 설명" class="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white">
+                        </div>
+                    </div>
+                    <button onclick="updateMatchDetails(${m.id})" class="w-full py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded font-bold">이 종목 저장</button>
+                </div>
+            `).join('');
+        }
+
+        function updateNotice() {
+            const val = document.getElementById('adminNoticeInput').value.trim();
+            if (val) {
+                state.notice = val;
+                saveState();
+                showToast('공지사항이 업데이트 되었습니다.');
+            }
+        }
+
+        function updateScores() {
+            state.teams.forEach(t => {
+                const input = document.getElementById(`score-input-${t.id}`);
+                if (input) {
+                    t.score = parseInt(input.value) || 0;
+                }
+            });
+            saveState();
+            showToast('팀별 종합 점수가 업데이트 되었습니다.');
+        }
+
+        function updateMatchStatus(id) {
+            const match = state.matches.find(m => m.id === id);
+            if (match) {
+                const select = document.getElementById(`match-status-${id}`);
+                match.status = select.value;
+                saveState();
+                showToast(`[${match.name}] 경기 상태가 변경되었습니다.`);
+            }
+        }
+
+        function updateMatchWinner(id) {
+            const match = state.matches.find(m => m.id === id);
+            if (match) {
+                const winnerInput = document.getElementById(`match-winner-${id}`);
+                match.winner = winnerInput.value.trim() || '-';
+                saveState();
+                showToast(`[${match.name}] 우승 정보가 변경되었습니다.`);
+            }
+        }
+
+        function addMatch() {
+            const newMatch = {
+                id: Date.now(),
+                name: '새 종목',
+                time: '00:00 - 00:00',
+                location: '장소 미정',
+                status: 'upcoming',
+                winner: '-',
+                points: '100점',
+                detail: '세부 설명을 입력하세요.'
+            };
+            state.matches.push(newMatch);
+            saveState();
+            renderAdminControls();
+            showToast('새 종목이 추가되었습니다. 이름을 수정해 주세요.');
+        }
+
+        function deleteMatch(id) {
+            const match = state.matches.find(m => m.id === id);
+            if (!match) return;
+            if (confirm(`[${match.name}] 종목을 삭제하시겠습니까?`)) {
+                state.matches = state.matches.filter(m => m.id !== id);
+                saveState();
+                renderAdminControls();
+                showToast('종목이 삭제되었습니다.');
+            }
+        }
+
+        function updateMatchDetails(id) {
+            const match = state.matches.find(m => m.id === id);
+            if (!match) return;
+            const name = document.getElementById(`tt-name-${id}`).value.trim();
+            if (!name) {
+                alert('종목 이름은 비워둘 수 없습니다.');
+                return;
+            }
+            match.name = name;
+            match.time = document.getElementById(`tt-time-${id}`).value.trim() || '-';
+            match.location = document.getElementById(`tt-location-${id}`).value.trim() || '-';
+            match.detail = document.getElementById(`tt-detail-${id}`).value.trim() || '-';
+            saveState();
+            renderAdminControls();
+            showToast(`[${match.name}] 종목 정보가 저장되었습니다.`);
+        }
+
+        function resetDataToDefault() {
+            if (confirm('모든 점수, 경기 진행 상태, 응원 메시지가 기본값으로 초기화됩니다. 계속하시겠습니까?')) {
+                state.teams = defaultTeams;
+                state.matches = defaultMatches;
+                state.cheers = defaultCheers;
+                state.notice = '현재 [전략 줄다리기] 경기 진행 중입니다! 운동장으로 모여주세요.';
+                saveState();
+                renderAdminControls();
+                showToast('기본 데이터로 초기화되었습니다.');
+            }
+        }
+
+        // Toast Helper
+        function showToast(msg, type) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMsg').innerText = msg;
+            if (type === 'error') {
+                icon.className = 'fa-solid fa-circle-exclamation text-rose-400';
+            } else {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400';
+            }
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function setConnectionStatus(connected) {
+            const el = document.getElementById('connStatus');
+            if (!el) return;
+            if (connected) {
+                el.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span> 실시간 연결됨';
+                el.className = 'text-xs flex items-center gap-1 text-emerald-400';
+            } else {
+                el.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> 연결 끊김 (재연결 시도 중)';
+                el.className = 'text-xs flex items-center gap-1 text-rose-400';
+            }
+        }
+
+        // Utility: Escape HTML
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // Initial Load
+        window.onload = function() {
+            render();
+            subscribeToFirebase();
+        }
+    </script>
+</body>
+</html>
